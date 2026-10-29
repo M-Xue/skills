@@ -176,12 +176,43 @@ base to the branch below, and links them into a stack on GitHub.
 gh stack submit --auto
 ```
 
-Then give every PR a real title and body with `gh pr edit <branch> --title ... --body-file ...`.
-Start each body from `assets/pr-template.md` and fill it in following
-`references/pr-description.md` (one of UX Solution or Bugged Behaviour, tick one Type of
-Change, leave Before vs After blank). Once every PR exists and has its number, end each body
-with the PR Train table of contents. The script reads the stack and its PR numbers itself and
-prints the block with 👈 on the checked-out branch's PR; you do the swap:
+Then give every PR a real title and body. Invoke the `write-pr-description` skill once per
+layer (it owns the title conventions, the PR body template, and how to fill each section), and
+pass it these stack-specific points for the layer in hand:
+
+- What this layer builds on from lower layers, and what it deliberately leaves unused until a
+  higher layer, so the Overview heads off "where is X used?" questions.
+- Whether the layer is co-dependent with another PR in the stack (see "Co-dependent PRs"
+  below), so the Overview names the other PR.
+- The same ticket on every PR in the stack.
+- Type of Change and UX Solution / Bugged Behaviour chosen for *this layer*, with layers that
+  have no user-visible effect pointing to the layer where the behaviour appears.
+- Exactly what checks were run at this layer in step 4.
+- No "(1/5)" counters in titles; the PR Train block below shows position.
+
+Once every PR exists and has its number, end each body with the PR Train table of contents.
+It is the same block Canva's `pr-train` tool produces, so reviewers recognise it:
+
+```markdown
+<pr-train-toc>
+
+### 🚂 PR Train 
+1. #1103425  
+1. #1103427  👈
+1. #1103428  
+<!-- { "pr_train_prs": ["1103425","1103427","1103428"] } -->
+</pr-train-toc>
+```
+
+Reviewers often open a PR from a notification without seeing GitHub's stack view. The train
+shows them where this PR sits and what it builds on, which heads off the two most common
+confusions: reviewing the cumulative diff against trunk, and asking for things that live in a
+lower layer. The HTML comment carries the PR list, so the train can be reconstructed from any
+one PR when the stack changes later.
+
+`scripts/generate_pr_train_toc.sh` only prints the block. With no arguments it reads the current
+`gh stack`, looks up each branch's PR number, and puts 👈 on the checked-out branch's PR. You do
+the swap, once per branch of the stack:
 
 ```bash
 gh stack bottom                                       # then gh stack up after each PR
@@ -191,12 +222,15 @@ gh pr view --json body -q .body > body.md             # latest description of th
 gh pr edit --body-file body.md
 ```
 
-Outside the stack's checkout, pass the PR ids bottom to top with `--current <pr>` instead.
+Outside the stack's checkout, pass the PR ids bottom to top with `--current <pr>`:
 
-Do this for every PR in the train; each one gets its own 👈. The block embeds the PR list in an
-HTML comment so the train can be reconstructed from any one PR later. Always start from the
-PR's current body on GitHub, not from the file you wrote earlier, so edits made in the browser
-are kept.
+```bash
+scripts/generate_pr_train_toc.sh --current 1103427 1103425 1103427 1103428
+```
+
+Rules for the swap: exactly one block per description, always at the very end, never a stale
+one left behind. Always start from the PR's current body on GitHub, not from the file you wrote
+earlier, so edits made in the browser are kept.
 
 **Every PR stays a draft, and no reviewers are ever assigned.** The user decides when a PR is
 ready and who should look at it, after they have checked the split themselves. So: never pass
@@ -212,7 +246,8 @@ gh stack push
 gh pr create --draft --head <branch> --base <branch-below or trunk> --title ... --body-file ...   # one per layer; always --draft, no --reviewer
 ```
 
-then add the PR Train block to each body the same way as above.
+with the title and body from `write-pr-description`, then add the PR Train block to each body
+the same way as above.
 
 ### 7. Report
 
@@ -263,11 +298,13 @@ PR is worse for the reviewer than two 350-line PRs with a clear "these land toge
 - `references/splitting.md`: how to decide PR boundaries and commit boundaries, Canva's split
   axes, sizing rules, commit message format, a worked example.
 - `references/gh-stack.md`: command reference for `gh stack`, exit codes, verified behaviours.
-- `references/pr-description.md`: title conventions, how to fill each section of the PR body
-  template, and the PR Train block.
-- `assets/pr-template.md`: the PR body template to copy for every PR.
 - `scripts/inventory.sh`: per-file change inventory against a base ref.
 - `scripts/stack_sizes.sh`: changed lines and commit count per layer of the current stack.
 - `scripts/generate_pr_train_toc.sh`: print the PR Train table-of-contents block for one PR of the
   train. Output only; swapping it into the description is done by hand with `gh pr view` and
   `gh pr edit`.
+
+## Related skills
+
+- `write-pr-description`: titles and bodies for each PR in the stack (step 6). It owns the PR
+  body template; this skill only adds the stack-specific notes and the PR Train block.

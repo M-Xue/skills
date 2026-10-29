@@ -10,7 +10,7 @@
 # Ids may be 1103425, #1103425, or a PR URL. Needs gh, the gh-stack extension, and jq.
 #
 # Output only. Fetching the description, swapping any existing <pr-train-toc> block, and saving
-# with `gh pr edit` are done by hand (see references/pr-description.md).
+# with `gh pr edit` are done by hand (see step 6 of SKILL.md).
 set -euo pipefail
 
 current=""
