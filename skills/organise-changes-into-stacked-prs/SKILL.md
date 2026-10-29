@@ -3,12 +3,13 @@ name: organise-changes-into-stacked-prs
 description: >
   Split a large, already-implemented change (an uncommitted working tree, a WIP branch, or one
   giant commit) into a stack of small, independently reviewable pull requests (about 300 changed
-  lines each, 500 max) made of atomic commits, then push them to GitHub with the `gh stack` CLI.
-  Use this whenever the user asks to split, chunk, break up, carve up, or stack a change, PR,
-  branch, or diff; says a PR is too big or hard to review; mentions stacked PRs, a PR train,
-  `gh stack`, or atomic commits; or has just finished a big agent-implemented feature or bug fix
-  and wants it organised for review. Trigger even when they only say "make this reviewable",
-  "tidy these commits up before I open PRs", or "get this ready for review".
+  lines each, 500 max) made of atomic commits, push them as draft PRs with the `gh stack` CLI,
+  and manage the stack afterwards (PR Train table of contents, rebasing, fixing a layer,
+  restructuring). It does not write PR titles or descriptions; `submit-pr` is the entry point
+  that decides whether to stack and then writes those. Use this directly whenever the user asks
+  to split, chunk, break up, carve up, or stack a change, PR, branch, or diff; says a PR is too
+  big; mentions stacked PRs, a PR train, `gh stack`, or atomic commits; or needs help operating
+  an existing stack (sync, rebase, add a layer, regenerate the train block).
 ---
 
 # Stacked PRs
@@ -18,13 +19,19 @@ description: >
 Agent-driven work tends to land as one large change: a whole feature or bug fix implemented in a
 single pass. That is a good way to *build* software and a bad way to *review* it. A reviewer
 handed 1,500 changed lines across 30 files has no path through the change, so the review either
-drags on for days or gets rubber-stamped. Canva's own data shows PRs under about 300 changed
-lines usually get reviewed within 24 hours and larger ones stretch over multiple days.
+drags on for days or gets rubber-stamped. In practice, PRs under about 300 changed lines
+usually get reviewed within a day and larger ones stretch over multiple days.
 
 This skill runs at the **end** of implementation. The input is a finished change; the output is a
-stack of PRs on GitHub where each PR is one atomic, mergeable step toward the feature, and each
-commit inside a PR is one readable step toward that PR. Nothing from the original change is lost,
-and the original is backed up before any history is rewritten.
+stack of draft PRs on GitHub where each PR is one atomic, mergeable step toward the feature, and
+each commit inside a PR is one readable step toward that PR. Nothing from the original change is
+lost, and the original is backed up before any history is rewritten.
+
+This skill is about the *shape* of the stack: where the boundaries go, how the branches and
+commits are built, how `gh stack` is driven, and how the PR Train block is produced. It does not
+write PR titles or descriptions. When it is invoked by `submit-pr`, that skill takes the report
+from step 7 and writes a title and body for every layer; when it is invoked directly, tell the
+user the PRs have placeholder titles and point them at `submit-pr`.
 
 Two levels of granularity:
 
@@ -48,7 +55,7 @@ Read `references/splitting.md` for the full heuristics before planning. Read
 ```bash
 gh extension list | grep -q gh-stack || gh extension install github/gh-stack
 gh auth status
-TRUNK=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)   # usually master at Canva
+TRUNK=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name)
 git status --short && git branch --show-current
 ```
 
@@ -166,7 +173,7 @@ git log --oneline "origin/$TRUNK"..HEAD   # should read like a story, bottom to 
 
 Fix sizing or ordering problems now. Rebuilding a layer is cheap before anything is pushed.
 
-### 6. Push and open PRs
+### 6. Push and open draft PRs
 
 Claude runs commands in a non-interactive terminal, so `gh stack submit` uses auto mode: it
 pushes every branch, opens one **draft** PR per layer with a placeholder title, sets each PR's
@@ -176,22 +183,49 @@ base to the branch below, and links them into a stack on GitHub.
 gh stack submit --auto
 ```
 
-Then give every PR a real title and body. Invoke the `write-pr-description` skill once per
-layer (it owns the title conventions, the PR body template, and how to fill each section), and
-pass it these stack-specific points for the layer in hand:
+Stop there. Do not write titles or bodies in this skill; that is `submit-pr`'s job, using the
+report from step 7. The only body content this skill owns is the PR Train block below, and even
+that is appended by `submit-pr` as the last step of composing each body.
 
-- What this layer builds on from lower layers, and what it deliberately leaves unused until a
-  higher layer, so the Overview heads off "where is X used?" questions.
-- Whether the layer is co-dependent with another PR in the stack (see "Co-dependent PRs"
-  below), so the Overview names the other PR.
-- The same ticket on every PR in the stack.
-- Type of Change and UX Solution / Bugged Behaviour chosen for *this layer*, with layers that
-  have no user-visible effect pointing to the layer where the behaviour appears.
-- Exactly what checks were run at this layer in step 4.
-- No "(1/5)" counters in titles; the PR Train block below shows position.
+**Every PR stays a draft, and no reviewers are ever assigned.** The user decides when a PR is
+ready and who should look at it, after they have checked the split themselves. So: never pass
+`--open` to `gh stack submit`, never run `gh pr ready`, and never use `--reviewer`,
+`--add-reviewer`, `--assignee`, or request a review in any other way, even if a CODEOWNERS or
+OWNERS file suggests who the reviewers would be. If the user asks you to do any of those, do it
+then; do not do it by default.
 
-Once every PR exists and has its number, end each body with the PR Train table of contents.
-It is the same block Canva's `pr-train` tool produces, so reviewers recognise it:
+If `submit` exits with code 9, stacked PRs are not enabled for the repository. Fall back to:
+
+```bash
+gh stack push
+gh pr create --draft --head <branch> --base <branch-below or trunk> --title "<branch name>" --body ""   # one per layer; always --draft, no --reviewer
+```
+
+The placeholder title and empty body are replaced by `submit-pr`.
+
+### 7. Report
+
+The report is the handoff to `submit-pr`, so it must carry everything needed to write each
+layer's title and description without re-deriving it. Produce:
+
+1. A table with one row per layer, bottom to top: PR number, URL, branch, base branch, changed
+   lines (and how many are generated), commit count, and the one-sentence goal from the plan.
+2. For each layer, three short notes: what it **builds on** from lower layers, what it
+   **introduces but leaves unused** until a higher layer (and which one), and exactly which
+   **checks were run** on it in step 4.
+3. The ticket, and whether the work as a whole is new behaviour or a bug fix.
+4. Any **co-dependent PRs** (see below), as groups with a one-sentence reason each. If there
+   are none, say so in one line so the reader knows you checked.
+5. The backup branch and `${ORIG}-full`, so the user knows how to get back
+   (`git checkout backup/...`). Leave both branches in place; the user deletes them when the
+   stack has merged.
+
+Remind the user that every PR is a draft with no reviewers and a placeholder title, and that
+`submit-pr` is what writes the titles and descriptions.
+
+## The PR Train block
+
+Every PR in a stack ends with a PR Train table of contents, in this exact format:
 
 ```markdown
 <pr-train-toc>
@@ -211,8 +245,12 @@ lower layer. The HTML comment carries the PR list, so the train can be reconstru
 one PR when the stack changes later.
 
 `scripts/generate_pr_train_toc.sh` only prints the block. With no arguments it reads the current
-`gh stack`, looks up each branch's PR number, and puts 👈 on the checked-out branch's PR. You do
-the swap, once per branch of the stack:
+`gh stack`, looks up each branch's PR number, and puts 👈 on the checked-out branch's PR. PR
+numbers exist only after step 6, so the block is always produced after `gh stack submit`.
+
+When `submit-pr` composes a body it appends this block as the final thing in the file. When the
+stack changes later (a layer added, removed, or reordered) the block is swapped into every PR's
+existing body by hand, once per branch of the stack:
 
 ```bash
 gh stack bottom                                       # then gh stack up after each PR
@@ -232,33 +270,6 @@ Rules for the swap: exactly one block per description, always at the very end, n
 one left behind. Always start from the PR's current body on GitHub, not from the file you wrote
 earlier, so edits made in the browser are kept.
 
-**Every PR stays a draft, and no reviewers are ever assigned.** The user decides when a PR is
-ready and who should look at it, after they have checked the split themselves. So: never pass
-`--open` to `gh stack submit`, never run `gh pr ready`, and never use `--reviewer`,
-`--add-reviewer`, `--assignee`, or request a review in any other way, even if a CODEOWNERS or
-OWNERS file suggests who the reviewers would be. If the user asks you to do any of those, do it
-then; do not do it by default.
-
-If `submit` exits with code 9, stacked PRs are not enabled for the repository. Fall back to:
-
-```bash
-gh stack push
-gh pr create --draft --head <branch> --base <branch-below or trunk> --title ... --body-file ...   # one per layer; always --draft, no --reviewer
-```
-
-with the title and body from `write-pr-description`, then add the PR Train block to each body
-the same way as above.
-
-### 7. Report
-
-Finish with a table: PR number, title, base, changed lines, commits, URL. Name the backup branch
-and `${ORIG}-full` so the user knows how to get back (`git checkout backup/...`). Leave both
-branches in place; the user deletes them when the stack has merged. Remind the user that every
-PR is a draft with no reviewers, and that they do both of those themselves.
-
-Then, as the final part of the report, call out any **co-dependent PRs** (see below). If there
-are none, say so in one line so the user knows you checked.
-
 ## Co-dependent PRs
 
 The ideal is that every PR in the stack can merge on its own. Sometimes the split that reads best
@@ -270,12 +281,12 @@ understandable, but the reader must not be left to discover the coupling by merg
 So whenever two or more PRs in the stack have to land together:
 
 - Say so in the plan (step 3), so the user can push back before anything is built.
-- Say so in each affected PR's Overview ("must merge together with #n; see the end of the
-  report"), so a reviewer who approves one knows not to merge it alone.
-- Say so explicitly at the end of the final report, in its own section, listing each group of
-  PRs that must merge together and the one-sentence reason. `gh stack merge <top-pr-of-group>`
-  merges a contiguous run of the stack atomically, so point the user at that as the way to land
-  the group.
+- Say so in the report (step 7), in its own section, listing each group of PRs that must merge
+  together and the one-sentence reason. `submit-pr` passes this to the description writer so
+  each affected PR's Overview says "must merge together with #n", and a reviewer who approves
+  one knows not to merge it alone.
+- Point the user at `gh stack merge <top-pr-of-group>`, which merges a contiguous run of the
+  stack atomically, as the way to land the group.
 
 Do not quietly fold co-dependent pieces into one oversized PR to avoid the call-out. A 700-line
 PR is worse for the reviewer than two 350-line PRs with a clear "these land together" note.
@@ -289,14 +300,15 @@ PR is worse for the reviewer than two 350-line PRs with a clear "these land toge
   `--force-with-lease`. On conflict it restores everything and tells you to run `gh stack rebase`.
 - **Restructure the stack:** `gh stack modify` is interactive, so hand it to the user, or rebuild
   from `${ORIG}-full` with steps 4 and 5. Whenever a PR is added, removed, or reordered, regenerate
-  the train block with `scripts/generate_pr_train_toc.sh` and swap it into every PR's body as in step 6.
-  The old block's HTML comment tells you which PRs were in the train before.
+  the train block with `scripts/generate_pr_train_toc.sh` and swap it into every PR's body as
+  described under "The PR Train block". The old block's HTML comment tells you which PRs were in
+  the train before. A new layer needs a title and body too; hand that to `submit-pr`.
 - **Merge:** `gh stack merge` merges bottom-up atomically. Draft PRs cannot be merged.
 
 ## Reference files
 
-- `references/splitting.md`: how to decide PR boundaries and commit boundaries, Canva's split
-  axes, sizing rules, commit message format, a worked example.
+- `references/splitting.md`: how to decide PR boundaries and commit boundaries, the axes to
+  split along, sizing rules, commit message format, a worked example.
 - `references/gh-stack.md`: command reference for `gh stack`, exit codes, verified behaviours.
 - `scripts/inventory.sh`: per-file change inventory against a base ref.
 - `scripts/stack_sizes.sh`: changed lines and commit count per layer of the current stack.
@@ -306,5 +318,6 @@ PR is worse for the reviewer than two 350-line PRs with a clear "these land toge
 
 ## Related skills
 
-- `write-pr-description`: titles and bodies for each PR in the stack (step 6). It owns the PR
-  body template; this skill only adds the stack-specific notes and the PR Train block.
+- `submit-pr`: the entry point. It decides whether a change needs a stack at all, invokes this
+  skill when it does, and then writes a title and description for every layer and appends the
+  PR Train block. This skill never calls `write-pr-description` itself.

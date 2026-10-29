@@ -42,7 +42,7 @@ and painful to review mixed with behaviour changes.
 
 ## Axes to split along
 
-From Canva's PR guidance, the most productive axes are:
+The most productive axes are:
 
 - **Client versus server.**
 - **Logic versus data or schema** (protos, migrations, fixtures).
@@ -99,7 +99,7 @@ client has no retry hook, so this adds an opt-in policy rather than
 changing default behaviour for other callers.
 ```
 
-Bad subjects, from Canva's guidance: "soft fail", "Wire in resolution", "changed to 5 minutes",
+Bad subjects: "soft fail", "Wire in resolution", "changed to 5 minutes",
 "Remove more logs". They name neither the affected component nor the effect.
 
 ## Commit boundaries inside a PR
