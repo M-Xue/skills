@@ -322,7 +322,10 @@ If PRs already exist (a re-submit after review feedback or a restructured stack)
   feedback" section), then push with `gh stack submit --auto` (which also opens PRs for any new
   layers and fixes bases) or `gh stack push` (branches only). Rewrite titles and bodies only for
   layers whose diff or position changed. If the set of PRs changed, re-collect the numbers and
-  swap a fresh train block into every layer's body, including the unchanged ones.
+  swap a fresh train block into every layer's body, including the unchanged ones. The PR train
+  section should always be updated to reflect the current stack composition for every single
+  PR in the stack without exception. If the user has specified to not edit the PR description,
+  the PR train section should always be an exception and should be updated regardless.
 
 ## Related skills
 

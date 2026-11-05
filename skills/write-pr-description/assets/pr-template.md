@@ -2,11 +2,9 @@
 
 <!-- A concise summary of what this PR does and why. -->
 
-- **Related Issue:** [<Jira ticket number>](<link to Jira ticket>)
+**Related Issue:** [<Jira ticket number>](<link to Jira ticket>)
 
-<!-- Pick out of Bug fix, New feature, Refactor, Docs, Performance -->
-
-- **Type of Change:** <Type of change>
+**Type of Change:** <Type of change. Pick out of Bug fix, New feature, Refactor, Docs, Performance. Put the type of change alone as a single word.>
 
 ## UX Solution
 
@@ -27,5 +25,3 @@
 <!-- Outline in detail the technical changes made in this PR and why. -->
 
 ## Before vs After
-
-<!-- Leave this blank. I will personally update the media for this section. -->

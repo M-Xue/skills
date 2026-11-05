@@ -49,8 +49,7 @@ How to fill each section:
   link format for this repository. If there is no ticket, remove the bullet rather than leaving
   the placeholder.
 - **Type of Change.** Pick a type of change for _this PR_, not the feature it
-  belongs to. A refactor-only PR at the bottom of a feature stack is `Refactor`, not
-  `New feature`.
+  belongs to. A refactor-only PR of a feature stack is `Refactor`, not `New feature`.
 - **UX Solution** or **Bugged Behaviour**, never both. Keep UX Solution when the change adds new
   behaviour and delete the Bugged Behaviour section; keep Bugged Behaviour (with Expected and
   Actual filled in) when the change fixes a bug and delete UX Solution. For a PR with no
@@ -58,7 +57,7 @@ How to fill each section:
   write one line pointing to where the behaviour becomes visible.
 - **Technical Solution.** The reviewer's guide to the diff: what changed, the shape chosen and
   why, anything they might question (a public API choice, a new dependency, a deliberately
-  temporary shim).
+  temporary shim). Don't talk about tests added or verification run.
 - **Before vs After.** Leave the heading and its comment exactly as they are. The author adds the
   media personally.
 
