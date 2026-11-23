@@ -25,3 +25,10 @@
 <!-- Outline in detail the technical changes made in this PR and why. -->
 
 ## Before vs After
+
+| **Before** | **After** |
+|------------|-----------|
+| TODO add video of before | TODO add video of after |
+
+<!-- Leave these cells with the placeholders. I will personally update the media for this section. -->
+

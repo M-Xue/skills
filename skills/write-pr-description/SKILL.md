@@ -58,8 +58,8 @@ How to fill each section:
 - **Technical Solution.** The reviewer's guide to the diff: what changed, the shape chosen and
   why, anything they might question (a public API choice, a new dependency, a deliberately
   temporary shim). Don't talk about tests added or verification run.
-- **Before vs After.** Leave the heading and its comment exactly as they are. The author adds the
-  media personally.
+- **Before vs After.** Leave the heading, the table and its comment exactly as they are.
+  The author adds the media personally.
 
 Remove the HTML comments from sections you have filled in; leave the one under Before vs After.
 
